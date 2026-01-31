@@ -1,0 +1,73 @@
+# Core Framework
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+
+# Database & Storage
+supabase
+psycopg2-binary
+sqlalchemy
+asyncpg
+
+# Vector Database
+qdrant-client
+
+# OCR & Image Processing
+pytesseract
+pdf2image
+Pillow
+opencv-python
+
+# AI & ML
+openai
+anthropic
+sentence-transformers
+torch
+numpy
+
+# External APIs
+requests
+httpx
+aiohttp
+
+# Authentication & Security
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+cryptography
+
+# Caching
+redis
+hiredis
+
+# Task Queue & Async Processing
+celery
+flower
+
+# Rate Limiting
+slowapi
+
+# Logging & Monitoring
+python-json-logger
+loguru
+sentry-sdk[fastapi]
+prometheus-client
+
+# Utilities
+python-dotenv
+tenacity
+validators
+
+# Testing
+pytest
+pytest-asyncio
+pytest-cov
+httpx
+faker
+
+# Development
+black
+ruff
+mypy
+pre-commit

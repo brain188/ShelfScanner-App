@@ -1,0 +1,47 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+.vscode/
+.DS_Store
+instance/
+migrations/
+*.sqlite3
+*.log
+*.db
+*.egg-info/
+coverage
+htmlcov/
+.ipynb_checkpoints
+celerybeat-schedule
+*.pytest_cache/
+*.pyo
+*.pyd
+*.swp
+*.swo
+*.bak
+
+# Ignore virtual environment directories
+venv/
+.env/
+.env
+.venv/
+pip-wheel-metadata/
+TechDocs/
+TechDocs
+docs/
+
+# Ignore IDE specific files
+.idea/
+*.iml
+*.sublime-project
+*.sublime-workspace
+
+# Ignore build and distribution directories
+build/
+dist/
+.eggs/
+wheelhouse/
+.pytest_cache/
+.tox/
+.coverage
+.nox/
