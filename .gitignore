@@ -26,8 +26,6 @@ venv/
 .env
 .venv/
 pip-wheel-metadata/
-TechDocs/
-TechDocs
 docs/
 
 # Ignore IDE specific files
