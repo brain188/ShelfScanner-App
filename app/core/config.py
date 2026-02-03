@@ -5,7 +5,7 @@ Implements the singleton pattern for global settings access.
 
 from functools import lru_cache
 from typing import Optional, List
-from pydantic import Field, field_validator, AnyHttpUrl, validator
+from pydantic import Field, field_validator, AnyHttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
