@@ -1,0 +1,135 @@
+version: '3.8'
+
+services:
+  # Main FastAPI application
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: shelfscanner_app
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+    env_file:
+      - ../.env
+    volumes:
+      - ../app:/app/app
+      - upload_data:/tmp/shelfscanner/uploads
+      - log_data:/var/log/shelfscanner
+    depends_on:
+      - redis
+      - qdrant
+    restart: unless-stopped
+    networks:
+      - shelfscanner_network
+
+  # Redis for caching and Celery broker
+  redis:
+    image: redis:7-alpine
+    container_name: shelfscanner_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - shelfscanner_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Qdrant vector database
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: shelfscanner_qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+    networks:
+      - shelfscanner_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Celery worker for async tasks
+  celery_worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: shelfscanner_celery_worker
+    command: celery -A app.main worker --loglevel=info
+    environment:
+      - ENVIRONMENT=development
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    env_file:
+      - ../.env
+    volumes:
+      - ../app:/app/app
+      - upload_data:/tmp/shelfscanner/uploads
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - shelfscanner_network
+
+  # Flower for Celery monitoring
+  flower:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: shelfscanner_flower
+    command: celery -A app.main flower --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      - redis
+      - celery_worker
+    restart: unless-stopped
+    networks:
+      - shelfscanner_network
+
+  # Nginx reverse proxy (optional, for production)
+  nginx:
+    image: nginx:alpine
+    container_name: shelfscanner_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - shelfscanner_network
+    profiles:
+      - production
+
+volumes:
+  redis_data:
+  qdrant_data:
+  upload_data:
+  log_data:
+
+networks:
+  shelfscanner_network:
+    driver: bridge
