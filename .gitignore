@@ -24,6 +24,10 @@ celerybeat-schedule
 venv/
 .env/
 .env
+.env.staging/
+.env.production/
+.env.staging
+.env.production
 .venv/
 pip-wheel-metadata/
 docs/
