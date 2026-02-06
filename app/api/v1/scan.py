@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -117,6 +117,7 @@ async def process_scan_async(
 @router.post("/upload", response_model=ScanResponse)
 @limiter.limit(f"{settings.rate_limit_per_minute}/minute")
 async def upload_image(
+    request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     auto_add_to_library: bool = False,

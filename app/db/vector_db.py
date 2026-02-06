@@ -37,7 +37,7 @@ class VectorDBClient:
         """Initialize Qdrant client with configuration"""
         try:
             self._client = QdrantClient(
-                host=settings.qdrant_host,
+                url=settings.qdrant_host,
                 port=settings.qdrant_port,
                 api_key=settings.qdrant_api_key,
                 timeout=30.0

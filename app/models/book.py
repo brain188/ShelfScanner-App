@@ -35,7 +35,7 @@ class BookBase(BaseModel):
     description: Optional[str] = Field(None, description="Book description")
     categories: List[str] = Field(default_factory=list, description="Book categories/genres")
     
-    class Config:
+    class ConfigDict:
         from_attributes = True
 
 
@@ -55,7 +55,7 @@ class Book(BookBase):
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Update timestamp")
     
-    class Config:
+    class ConfigDict:
         from_attributes = True
 
 
@@ -82,7 +82,7 @@ class UserBook(BaseModel):
                 raise ValueError("Current page cannot exceed total pages")
         return v
     
-    class Config:
+    class ConfigDict:
         from_attributes = True
 
 

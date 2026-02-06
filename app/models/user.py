@@ -19,7 +19,7 @@ class UserBase(BaseModel):
     email: EmailStr = Field(..., description="User email address")
     full_name: Optional[str] = Field(None, description="User full name")
     
-    class Config:
+    class ConfigDict:
         from_attributes = True
 
 
@@ -63,7 +63,7 @@ class User(UserBase):
     updated_at: datetime = Field(..., description="User update timestamp")
     last_login: Optional[datetime] = Field(None, description="Last login timestamp")
     
-    class Config:
+    class ConfigDict:
         from_attributes = True
 
 
@@ -80,7 +80,7 @@ class UserProfile(BaseModel):
     role: UserRole
     created_at: datetime
     
-    class Config:
+    class ConfigDict:
         from_attributes = True
 
 

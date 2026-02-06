@@ -3,7 +3,7 @@ Books API endpoints for library management.
 """
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -85,6 +85,7 @@ async def create_book(
 @router.get("/search", response_model=list)
 @limiter.limit(f"{settings.rate_limit_per_minute}/minute")
 async def search_books(
+    request: Request,
     q: str = Query(..., min_length=2),
     limit: int = Query(10, ge=1, le=50),
     current_user: dict = Depends(get_current_active_user)

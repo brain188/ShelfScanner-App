@@ -3,7 +3,7 @@ Authentication API endpoints.
 Handles user registration, login, token refresh, and password management.
 """
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -33,7 +33,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 @router.post("/register", response_model=User, status_code=status.HTTP_201_CREATED)
 @limiter.limit(f"{settings.rate_limit_per_hour}/hour")
-async def register(user_data: UserCreate) -> User:
+async def register(request: Request, user_data: UserCreate) -> User:
     """
     Register a new user.
     
@@ -80,7 +80,7 @@ async def register(user_data: UserCreate) -> User:
 
 @router.post("/login", response_model=Token)
 @limiter.limit(f"{settings.rate_limit_per_minute}/minute")
-async def login(login_data: LoginRequest) -> Token:
+async def login(request: Request, login_data: LoginRequest) -> Token:
     """
     Login user and return access + refresh tokens.
     

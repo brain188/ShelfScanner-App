@@ -35,17 +35,17 @@ class SupabaseClient:
     def _initialize_client(self):
         """Initialize Supabase client with configuration"""
         try:
-            options = ClientOptions(
-                schema="public",
-                headers={},
-                auto_refresh_token=True,
-                persist_session=True
-            )
+            # options = ClientOptions(
+            #     schema="public",
+            #     headers={},
+            #     auto_refresh_token=True,
+            #     persist_session=True
+            # )
             
             self._client = create_client(
                 supabase_url=str(settings.supabase_url),
                 supabase_key=settings.supabase_service_key,
-                options=options
+                # options=options
             )
             
             logger.info("Supabase client initialized successfully")

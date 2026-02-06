@@ -5,17 +5,38 @@ Provides common test fixtures, mocks, and utilities.
 import pytest
 import asyncio
 from typing import AsyncGenerator, Generator, Dict, Any
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 import tempfile
 import os
 from datetime import datetime, timedelta, timezone
 
-from app.main import app
-from app.core.security import create_access_token, password_manager
-from app.db.supabase import supabase_ops
+@pytest.fixture(scope="session", autouse=True)
+def mock_supabase_initialization():
+    """
+    Mock Supabase client initialization to prevent real connections during tests.
+    This fixture runs automatically for all tests.
+    """
+    with patch('app.db.supabase.create_client') as mock_create:
+        # Create a comprehensive mock Supabase client
+        mock_client = MagicMock()
+        
+        # Mock table operations
+        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
+        mock_client.table.return_value.insert.return_value.execute.return_value.data = []
+        mock_client.table.return_value.update.return_value.eq.return_value.execute.return_value.data = []
+        mock_client.table.return_value.delete.return_value.eq.return_value.execute.return_value.data = []
+        
+        # Mock auth operations
+        mock_client.auth.sign_in_with_password.return_value = MagicMock()
+        mock_client.auth.sign_up.return_value = MagicMock()
+        
+        mock_create.return_value = mock_client
+        yield mock_create
 
+from app.main import app
+from app.core.security import password_manager, token_manager
 
 # Event Loop Configuration
 @pytest.fixture(scope="session")
@@ -136,7 +157,7 @@ def auth_token(mock_user: Dict[str, Any]) -> str:
         "email": mock_user["email"],
         "role": mock_user["role"]
     }
-    return create_access_token(token_data)
+    return token_manager.create_access_token(token_data)
 
 
 @pytest.fixture
@@ -147,7 +168,7 @@ def premium_token() -> str:
         "email": "premium@example.com",
         "role": "premium"
     }
-    return create_access_token(token_data)
+    return token_manager.create_access_token(token_data)
 
 
 @pytest.fixture
@@ -158,7 +179,7 @@ def admin_token() -> str:
         "email": "admin@example.com",
         "role": "admin"
     }
-    return create_access_token(token_data)
+    return token_manager.create_access_token(token_data)
 
 
 @pytest.fixture
@@ -171,7 +192,7 @@ def expired_token() -> str:
     }
     # Token expired 1 hour ago
     expires_delta = timedelta(minutes=-60)
-    return create_access_token(token_data, expires_delta)
+    return token_manager.create_access_token(token_data, expires_delta)
 
 
 @pytest.fixture

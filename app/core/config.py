@@ -158,11 +158,7 @@ class Settings(BaseSettings):
             # In production, return specific allowed origins
             return [str(origin) for origin in self.allowed_hosts if origin != "*"]
         return ["*"]
-    
-    class Config:
-        """Pydantic config"""
-        case_sensitive = False
-
+        
 
 @lru_cache()
 def get_settings() -> Settings:

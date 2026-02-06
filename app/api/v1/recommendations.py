@@ -1,7 +1,7 @@
 """
 Recommendations API endpoints for AI-powered book suggestions.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -21,6 +21,7 @@ limiter = Limiter(key_func=get_remote_address)
 @router.get("/")
 @limiter.limit(f"{settings.rate_limit_per_minute}/minute")
 async def get_recommendations(
+    request: Request,
     limit: int = Query(10, ge=1, le=50),
     current_user: dict = Depends(get_current_active_user)
 ):
@@ -130,6 +131,7 @@ async def get_similar_books(
 @router.get("/ai-explanation")
 @limiter.limit("10/hour")
 async def get_ai_explanation(
+    request: Request,
     current_user: dict = Depends(get_current_active_user)
 ):
     """

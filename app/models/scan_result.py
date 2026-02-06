@@ -3,7 +3,7 @@ Scan result data models and schemas.
 """
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 from enum import Enum
 
 
@@ -60,7 +60,7 @@ class ScanResultBase(BaseModel):
     scan_type: ScanType = Field(..., description="Type of scan")
     status: ScanStatus = Field(default=ScanStatus.PENDING, description="Processing status")
     
-    class Config:
+    class ConfigDict:
         from_attributes = True
 
 
@@ -86,7 +86,7 @@ class ScanResult(ScanResultBase):
     updated_at: datetime = Field(..., description="Update timestamp")
     completed_at: Optional[datetime] = Field(None, description="Completion timestamp")
     
-    class Config:
+    class ConfigDict:
         from_attributes = True
 
 
@@ -133,10 +133,11 @@ class ScanStatistics(BaseModel):
 
 class BatchScanRequest(BaseModel):
     """Batch scan request"""
-    file_ids: List[str] = Field(..., description="List of uploaded file IDs")
+    file_ids: List[str] = Field(..., description="List of uploaded file IDs", max_length=20)
     auto_add_to_library: bool = Field(default=False)
     
-    @Field(max_items=20)
+    @field_validator("file_ids")
+    @classmethod
     def validate_file_count(cls, v):
         """Limit batch size"""
         if len(v) > 20:
