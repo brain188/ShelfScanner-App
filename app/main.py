@@ -147,17 +147,41 @@ async def log_requests(request: Request, call_next):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Handle validation errors"""
+    # Convert errors to JSON-serializable format
+    def make_json_safe(errors):
+        """Convert Pydantic validation errors to JSON-safe format"""
+        json_safe_errors = []
+        for error in errors:
+            json_safe_error = {}
+            for key, value in error.items():
+                if isinstance(value, list):
+                    # Handle lists that might contain non-serializable items
+                    json_safe_error[key] = [
+                        str(item) if not isinstance(item, (str, int, float, bool, type(None))) 
+                        else item 
+                        for item in value
+                    ]
+                elif isinstance(value, (str, int, float, bool, type(None))):
+                    json_safe_error[key] = value
+                else:
+                    # Convert any other types to string
+                    json_safe_error[key] = str(value)
+            json_safe_errors.append(json_safe_error)
+        return json_safe_errors
+    
+    errors = make_json_safe(exc.errors())
+    
     logger.warning(
         "Validation error",
         path=request.url.path,
-        errors=exc.errors()
+        errors=errors
     )
     
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "detail": "Validation error",
-            "errors": exc.errors()
+            "errors": errors
         }
     )
 

@@ -5,6 +5,7 @@ Implements secure password hashing and token generation/validation.
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
+import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
@@ -68,7 +69,7 @@ class TokenManager:
         to_encode.update({
             "exp": expire,
             "iat": datetime.now(timezone.utc),
-            "type": "access"
+            "type": data.get("type", "access")
         })
         
         encoded_jwt = jwt.encode(
@@ -172,8 +173,12 @@ class PasswordManager:
     Password management class for secure hashing and verification.
     """
     
-    @staticmethod
-    def hash_password(password: str) -> str:
+    def __init__(self):
+        """Initialize password manager"""
+        self.bcrypt_rounds = settings.bcrypt_rounds  # bcrypt cost factor
+
+    # @staticmethod
+    def hash_password(self, password: str) -> str:
         """
         Hash a password using bcrypt.
         
@@ -183,10 +188,12 @@ class PasswordManager:
         Returns:
             Hashed password
         """
-        return pwd_context.hash(password)
+        password_bytes = password.encode('utf-8')[:72]
+        return bcrypt.hashpw(password_bytes, bcrypt.gensalt(self.bcrypt_rounds)).decode('utf-8')
+        # return pwd_context.hash(password)
     
-    @staticmethod
-    def verify_password(plain_password: str, hashed_password: str) -> bool:
+    # @staticmethod
+    def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """
         Verify a password against its hash.
         
@@ -197,7 +204,9 @@ class PasswordManager:
         Returns:
             True if password matches, False otherwise
         """
-        return pwd_context.verify(plain_password, hashed_password)
+        password_bytes = plain_password.encode('utf-8')[:72]
+        return bcrypt.checkpw(password_bytes, hashed_password.encode('utf-8'))
+        # return pwd_context.verify(plain_password, hashed_password)
     
     @staticmethod
     def validate_password_strength(password: str) -> tuple[bool, Optional[str]]:

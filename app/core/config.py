@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     # Security Settings
     secret_key: str = Field(..., min_length=32, description="Secret key for JWT")
     algorithm: str = Field(default="HS256", description="JWT algorithm")
+    bcrypt_rounds: int = Field(default=12, description="Bcrypt cost factor")
     access_token_expire_minutes: int = Field(default=30, description="Access token expiration")
     refresh_token_expire_days: int = Field(default=7, description="Refresh token expiration")
     

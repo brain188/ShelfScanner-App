@@ -27,7 +27,8 @@ class UserCreate(UserBase):
     """User creation model"""
     password: str = Field(..., min_length=8, description="User password")
     
-    @field_validator("password")
+    @field_validator("password", mode="before")
+    @classmethod
     def validate_password(cls, v):
         """Validate password strength"""
         from app.core.security import password_manager

@@ -45,7 +45,7 @@ async def register(request: Request, user_data: UserCreate) -> User:
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                detail="Email already exists"
             )
         
         # Hash password
@@ -93,7 +93,7 @@ async def login(request: Request, login_data: LoginRequest) -> Token:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect email or password"
+                detail="Invalid credentials"
             )
         
         # Verify password
@@ -104,7 +104,7 @@ async def login(request: Request, login_data: LoginRequest) -> Token:
             logger.warning("Failed login attempt", email=login_data.email)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect email or password"
+                detail="Invalid credentials"
             )
         
         # Check if user is active
@@ -112,6 +112,13 @@ async def login(request: Request, login_data: LoginRequest) -> Token:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Account is inactive"
+            )
+        
+        # check if user is soft deleted
+        if user.get("deleted_at") is not None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User account has been deleted."
             )
         
         # Create tokens
@@ -263,6 +270,14 @@ async def change_password(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Incorrect current password"
+            )
+        
+        # Validate new password strength
+        is_valid, error = password_manager.validate_password_strength(password_data.new_password)
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=error
             )
         
         # Hash new password

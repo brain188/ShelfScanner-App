@@ -37,6 +37,7 @@ python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
 cryptography
+bcrypt==4.0.1
 
 # Caching
 redis

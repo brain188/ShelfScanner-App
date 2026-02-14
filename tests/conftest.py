@@ -36,7 +36,7 @@ def mock_supabase_initialization():
         yield mock_create
 
 from app.main import app
-from app.core.security import password_manager, token_manager
+from app.core.security import token_manager
 
 # Event Loop Configuration
 @pytest.fixture(scope="session")
@@ -454,6 +454,19 @@ def mock_supabase():
     
     return mock
 
+@pytest.fixture
+def mock_ops():
+    """
+    Mock all database operations in supabase_ops.
+    This bypasses the real Supabase client entirely.
+    """
+    with patch("app.api.v1.auth.supabase_ops", autospec=True) as mock:
+        # Default behavior: return empty or None to avoid crashes
+        mock.get_user_by_email = AsyncMock(return_value=None)
+        mock.create_user = AsyncMock()
+        mock.get_user_by_id = AsyncMock()
+        mock.update_user = AsyncMock()
+        yield mock
 
 @pytest.fixture
 def mock_redis():
@@ -558,7 +571,7 @@ async def test_db():
 
 
 @pytest.fixture(autouse=True)
-async def reset_database():
+def reset_database():
     """
     Reset database state between tests.
     Auto-used for all tests.
