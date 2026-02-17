@@ -352,7 +352,7 @@ async def get_current_active_user(
 
         # Merge database user data with token data
         return{
-            "user_id": user["id"],
+            "user_id": user.get("id") or user.get("user_id"),
             "email": user["email"],
             "full_name": user.get("full_name"),
             "role": user.get("role", "user"),

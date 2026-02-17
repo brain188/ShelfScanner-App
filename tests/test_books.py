@@ -5,6 +5,7 @@ Tests book search, library management, and book details.
 import pytest
 from fastapi import status
 from unittest.mock import patch, AsyncMock
+from app.models.book import BookSearchResult
 
 
 class TestBookSearch:
@@ -12,20 +13,35 @@ class TestBookSearch:
     
     def test_search_books_success(self, client, auth_headers, mock_google_books_response):
         """Test successful book search"""
-        with patch('app.services.book_service.search_books_external') as mock_search:
+        with patch('app.api.v1.books.book_lookup_service.search_books', new_callable=AsyncMock) as mock_search:
             mock_search.return_value = {
                 "results": [
-                    {
-                        "title": "The Great Gatsby",
-                        "authors": ["F. Scott Fitzgerald"],
-                        "isbn_13": "9780743273565"
-                    }
+                    BookSearchResult(
+                        title= "The Great Gatsby",
+                        authors=["F. Scott Fitzgerald"],
+                        isbn_13= "9780743273565",
+                        isbn_10=None,
+                        thumbnail_url=None,
+                        description=None,
+                        published_date=None,
+                        publisher=None,
+                        page_count=None,
+                        categories=[],
+                        language=None,
+                        average_rating=None,
+                        ratings_count=None,
+                        source="google_books",
+                        external_id="test-id"
+                    )
                 ],
-                "total_results": 1
+                "total": 1,
+                "page": 1,
+                "page_size": 10,
+                "total_pages": 1
             }
             
             response = client.get(
-                "/api/v1/books/search?q=gatsby",
+                "/api/v1/books/search?query=gatsby",
                 headers=auth_headers
             )
         
@@ -38,7 +54,7 @@ class TestBookSearch:
     def test_search_books_empty_query(self, client, auth_headers):
         """Test search with empty query"""
         response = client.get(
-            "/api/v1/books/search?q=",
+            "/api/v1/books/search?query=",
             headers=auth_headers
         )
         
@@ -47,7 +63,7 @@ class TestBookSearch:
     def test_search_books_min_length(self, client, auth_headers):
         """Test search query minimum length"""
         response = client.get(
-            "/api/v1/books/search?q=a",  # Too short
+            "/api/v1/books/search?query=a",  # Too short
             headers=auth_headers
         )
         
@@ -56,7 +72,7 @@ class TestBookSearch:
     def test_search_books_pagination(self, client, auth_headers):
         """Test search with pagination parameters"""
         response = client.get(
-            "/api/v1/books/search?q=python&limit=20",
+            "/api/v1/books/search?query=python&limit=20",
             headers=auth_headers
         )
         
@@ -64,14 +80,14 @@ class TestBookSearch:
     
     def test_search_books_by_isbn(self, client, auth_headers, sample_isbn_13):
         """Test search by ISBN"""
-        with patch('app.services.book_service.search_by_isbn') as mock_search:
+        with patch('app.api.v1.books.book_lookup_service.search_by_isbn', new_callable=AsyncMock) as mock_search:
             mock_search.return_value = {
                 "title": "The Great Gatsby",
                 "isbn_13": sample_isbn_13
             }
             
             response = client.get(
-                f"/api/v1/books/search?q={sample_isbn_13}",
+                f"/api/v1/books/search?query={sample_isbn_13}",
                 headers=auth_headers
             )
         
@@ -79,14 +95,14 @@ class TestBookSearch:
     
     def test_search_books_no_results(self, client, auth_headers):
         """Test search with no results"""
-        with patch('app.services.book_service.search_books_external') as mock_search:
+        with patch('app.api.v1.books.book_lookup_service.search_books', new_callable=AsyncMock) as mock_search:
             mock_search.return_value = {
                 "results": [],
-                "total_results": 0
+                "total": 0
             }
             
             response = client.get(
-                "/api/v1/books/search?q=nonexistentbook12345xyz",
+                "/api/v1/books/search?query=nonexistentbook12345xyz",
                 headers=auth_headers
             )
         
@@ -96,11 +112,11 @@ class TestBookSearch:
     
     def test_search_books_external_api_failure(self, client, auth_headers):
         """Test search when external API fails"""
-        with patch('app.services.book_service.search_books_external') as mock_search:
+        with patch('app.api.v1.books.book_lookup_service.search_books', new_callable=AsyncMock) as mock_search:
             mock_search.side_effect = Exception("API Error")
             
             response = client.get(
-                "/api/v1/books/search?q=gatsby",
+                "/api/v1/books/search?query=gatsby",
                 headers=auth_headers
             )
         
@@ -112,7 +128,7 @@ class TestGetBookDetails:
     
     def test_get_book_by_id_success(self, client, auth_headers, mock_book):
         """Test getting book details by ID"""
-        with patch('app.db.supabase.supabase_ops.get_book_by_id') as mock_get:
+        with patch('app.api.v1.books.supabase_ops.get_book_by_id', new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_book
             
             response = client.get(
@@ -127,7 +143,7 @@ class TestGetBookDetails:
     
     def test_get_book_not_found(self, client, auth_headers):
         """Test getting non-existent book"""
-        with patch('app.db.supabase.supabase_ops.get_book_by_id') as mock_get:
+        with patch('app.api.v1.books.supabase_ops.get_book_by_id', new_callable=AsyncMock) as mock_get:
             mock_get.return_value = None
             
             response = client.get(
@@ -139,7 +155,7 @@ class TestGetBookDetails:
     
     def test_get_book_by_isbn(self, client, auth_headers, sample_isbn_13, mock_book):
         """Test getting book by ISBN"""
-        with patch('app.db.supabase.supabase_ops.get_book_by_isbn') as mock_get:
+        with patch('app.api.v1.books.supabase_ops.get_book_by_isbn', new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_book
             
             response = client.get(
@@ -155,8 +171,8 @@ class TestUserLibrary:
     
     def test_get_library_success(self, client, auth_headers, mock_user, mock_books):
         """Test getting user's library"""
-        with patch('app.db.supabase.supabase_ops.get_user_by_id') as mock_get_user, \
-             patch('app.db.supabase.supabase_ops.get_user_library') as mock_get_lib:
+        with patch('app.api.v1.books.supabase_ops.get_user_by_id', new_callable=AsyncMock) as mock_get_user, \
+             patch('app.api.v1.books.supabase_ops.get_user_library', new_callable=AsyncMock) as mock_get_lib:
             
             mock_get_user.return_value = mock_user
             mock_get_lib.return_value = {
@@ -173,8 +189,8 @@ class TestUserLibrary:
     
     def test_get_library_empty(self, client, auth_headers, mock_user):
         """Test getting empty library"""
-        with patch('app.db.supabase.supabase_ops.get_user_by_id') as mock_get_user, \
-             patch('app.db.supabase.supabase_ops.get_user_library') as mock_get_lib:
+        with patch('app.api.v1.books.supabase_ops.get_user_by_id', new_callable=AsyncMock) as mock_get_user, \
+             patch('app.api.v1.books.supabase_ops.get_user_library', new_callable=AsyncMock) as mock_get_lib:
             
             mock_get_user.return_value = mock_user
             mock_get_lib.return_value = {
@@ -190,8 +206,8 @@ class TestUserLibrary:
     
     def test_get_library_filtered_by_status(self, client, auth_headers, mock_user):
         """Test filtering library by reading status"""
-        with patch('app.db.supabase.supabase_ops.get_user_by_id') as mock_get_user, \
-             patch('app.db.supabase.supabase_ops.get_user_library') as mock_get_lib:
+        with patch('app.api.v1.books.supabase_ops.get_user_by_id', new_callable=AsyncMock) as mock_get_user, \
+             patch('app.api.v1.books.supabase_ops.get_user_library', new_callable=AsyncMock) as mock_get_lib:
             
             mock_get_user.return_value = mock_user
             mock_get_lib.return_value = {
@@ -208,8 +224,8 @@ class TestUserLibrary:
     
     def test_get_library_pagination(self, client, auth_headers, mock_user, mock_books):
         """Test library pagination"""
-        with patch('app.db.supabase.supabase_ops.get_user_by_id') as mock_get_user, \
-             patch('app.db.supabase.supabase_ops.get_user_library') as mock_get_lib:
+        with patch('app.api.v1.books.supabase_ops.get_user_by_id', new_callable=AsyncMock) as mock_get_user, \
+             patch('app.api.v1.books.supabase_ops.get_user_library', new_callable=AsyncMock) as mock_get_lib:
             
             mock_get_user.return_value = mock_user
             mock_get_lib.return_value = {
@@ -224,9 +240,9 @@ class TestUserLibrary:
         
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert "pagination" in data
-        assert data["pagination"]["page"] == 1
-        assert data["pagination"]["page_size"] == 2
+        assert "total_pages" in data
+        assert data["page"] == 1
+        assert data["page_size"] == 2
 
 
 class TestAddBookToLibrary:
@@ -234,9 +250,9 @@ class TestAddBookToLibrary:
     
     def test_add_book_success(self, client, auth_headers, mock_user, mock_book):
         """Test successfully adding book to library"""
-        with patch('app.db.supabase.supabase_ops.get_user_by_id') as mock_get_user, \
-             patch('app.db.supabase.supabase_ops.get_book_by_id') as mock_get_book, \
-             patch('app.db.supabase.supabase_ops.add_book_to_library') as mock_add:
+        with patch('app.api.v1.books.supabase_ops.get_user_by_id', new_callable=AsyncMock) as mock_get_user, \
+             patch('app.api.v1.books.supabase_ops.get_book_by_id', new_callable=AsyncMock) as mock_get_book, \
+             patch('app.api.v1.books.supabase_ops.add_book_to_library', new_callable=AsyncMock) as mock_add:
             
             mock_get_user.return_value = mock_user
             mock_get_book.return_value = mock_book
@@ -261,8 +277,8 @@ class TestAddBookToLibrary:
     
     def test_add_book_duplicate(self, client, auth_headers, mock_user, mock_book):
         """Test adding book already in library"""
-        with patch('app.db.supabase.supabase_ops.get_user_by_id') as mock_get_user, \
-             patch('app.db.supabase.supabase_ops.add_book_to_library') as mock_add:
+        with patch('app.api.v1.books.supabase_ops.get_user_by_id', new_callable=AsyncMock) as mock_get_user, \
+             patch('app.api.v1.books.supabase_ops.add_book_to_library', new_callable=AsyncMock) as mock_add:
             
             mock_get_user.return_value = mock_user
             mock_add.side_effect = Exception("Book already in library")
@@ -293,8 +309,8 @@ class TestAddBookToLibrary:
     
     def test_add_book_nonexistent(self, client, auth_headers, mock_user):
         """Test adding non-existent book"""
-        with patch('app.db.supabase.supabase_ops.get_user_by_id') as mock_get_user, \
-             patch('app.db.supabase.supabase_ops.get_book_by_id') as mock_get_book:
+        with patch('app.api.v1.books.supabase_ops.get_user_by_id', new_callable=AsyncMock) as mock_get_user, \
+             patch('app.api.v1.books.supabase_ops.get_book_by_id', new_callable=AsyncMock) as mock_get_book:
             
             mock_get_user.return_value = mock_user
             mock_get_book.return_value = None
@@ -316,8 +332,8 @@ class TestUpdateLibraryBook:
     
     def test_update_book_status(self, client, auth_headers, mock_user, mock_book):
         """Test updating book reading status"""
-        with patch('app.db.supabase.supabase_ops.get_user_by_id') as mock_get_user, \
-             patch('app.db.supabase.supabase_ops.update_user_book') as mock_update:
+        with patch('app.api.v1.books.supabase_ops.get_user_by_id', new_callable=AsyncMock) as mock_get_user, \
+             patch('app.api.v1.books.supabase_ops.update_user_book', new_callable=AsyncMock) as mock_update:
             
             mock_get_user.return_value = mock_user
             mock_update.return_value = {
@@ -336,8 +352,8 @@ class TestUpdateLibraryBook:
     
     def test_update_book_progress(self, client, auth_headers, mock_user, mock_book):
         """Test updating reading progress"""
-        with patch('app.db.supabase.supabase_ops.get_user_by_id') as mock_get_user, \
-             patch('app.db.supabase.supabase_ops.update_user_book') as mock_update:
+        with patch('app.api.v1.books.supabase_ops.get_user_by_id', new_callable=AsyncMock) as mock_get_user, \
+             patch('app.api.v1.books.supabase_ops.update_user_book', new_callable=AsyncMock) as mock_update:
             
             mock_get_user.return_value = mock_user
             mock_update.return_value = {
@@ -355,8 +371,8 @@ class TestUpdateLibraryBook:
     
     def test_update_book_rating(self, client, auth_headers, mock_user, mock_book):
         """Test updating book rating"""
-        with patch('app.db.supabase.supabase_ops.get_user_by_id') as mock_get_user, \
-             patch('app.db.supabase.supabase_ops.update_user_book') as mock_update:
+        with patch('app.api.v1.books.supabase_ops.get_user_by_id', new_callable=AsyncMock) as mock_get_user, \
+             patch('app.api.v1.books.supabase_ops.update_user_book', new_callable=AsyncMock) as mock_update:
             
             mock_get_user.return_value = mock_user
             mock_update.return_value = {"rating": 5}
@@ -385,8 +401,8 @@ class TestRemoveBookFromLibrary:
     
     def test_remove_book_success(self, client, auth_headers, mock_user, mock_book):
         """Test successfully removing book"""
-        with patch('app.db.supabase.supabase_ops.get_user_by_id') as mock_get_user, \
-             patch('app.db.supabase.supabase_ops.remove_book_from_library') as mock_remove:
+        with patch('app.api.v1.books.supabase_ops.get_user_by_id', new_callable=AsyncMock) as mock_get_user, \
+             patch('app.api.v1.books.supabase_ops.remove_book_from_library', new_callable=AsyncMock) as mock_remove:
             
             mock_get_user.return_value = mock_user
             mock_remove.return_value = True
@@ -400,8 +416,8 @@ class TestRemoveBookFromLibrary:
     
     def test_remove_book_not_in_library(self, client, auth_headers, mock_user):
         """Test removing book not in library"""
-        with patch('app.db.supabase.supabase_ops.get_user_by_id') as mock_get_user, \
-             patch('app.db.supabase.supabase_ops.remove_book_from_library') as mock_remove:
+        with patch('app.api.v1.books.supabase_ops.get_user_by_id', new_callable=AsyncMock) as mock_get_user, \
+             patch('app.api.v1.books.supabase_ops.remove_book_from_library', new_callable=AsyncMock) as mock_remove:
             
             mock_get_user.return_value = mock_user
             mock_remove.return_value = False
@@ -419,8 +435,8 @@ class TestReadingStatistics:
     
     def test_get_reading_stats(self, client, auth_headers, mock_user):
         """Test getting user reading statistics"""
-        with patch('app.db.supabase.supabase_ops.get_user_by_id') as mock_get_user, \
-             patch('app.db.supabase.supabase_ops.get_reading_statistics') as mock_get_stats:
+        with patch('app.api.v1.books.supabase_ops.get_user_by_id', new_callable=AsyncMock) as mock_get_user, \
+             patch('app.api.v1.books.supabase_ops.get_reading_statistics', new_callable=AsyncMock) as mock_get_stats:
             
             mock_get_user.return_value = mock_user
             mock_get_stats.return_value = {

@@ -17,7 +17,7 @@ from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 from app.core.config import settings
 from app.core.logging import logger
-from app.api.v1 import auth, scan, book, recommendations
+from app.api.v1 import auth, scan, books, recommendations
 from app.db.supabase import SupabaseClient
 from app.db.vector_db import VectorDBClient
 
@@ -242,7 +242,7 @@ app.include_router(
 )
 
 app.include_router(
-    book.router,
+    books.router,
     prefix=f"{settings.api_v1_prefix}/books",
     tags=["Books"]
 )

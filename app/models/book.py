@@ -116,11 +116,16 @@ class BookSearchResult(BaseModel):
     title: str
     authors: List[str]
     isbn_13: Optional[str]
+    isbn_10: Optional[str]
     thumbnail_url: Optional[str]
     description: Optional[str]
     published_date: Optional[str]
     publisher: Optional[str]
     page_count: Optional[int]
+    categories: List[str] = Field(default_factory=list)   
+    language: Optional[str] = None         
+    average_rating: Optional[float] = None 
+    ratings_count: Optional[int] = None    
     source: str = Field(..., description="Source API (google_books, openlibrary)")
     external_id: str = Field(..., description="External API ID")
 
@@ -133,6 +138,22 @@ class BookList(BaseModel):
     page_size: int
     total_pages: int
 
+    @property
+    def pagination(self) -> dict:
+        """Return pagination metadata"""
+        return {
+            "total": self.total,
+            "page": self.page,
+            "page_size": self.page_size,
+            "total_pages": self.total_pages
+        }
+    
+    def model_dump(self, **kwargs):
+        """Override model_dump to include pagination metadata"""
+        data = super().model_dump(**kwargs)
+        data["pagination"] = self.pagination
+        return data
+
 
 class BookStats(BaseModel):
     """User's reading statistics"""
@@ -143,3 +164,11 @@ class BookStats(BaseModel):
     total_pages_read: int
     average_rating: Optional[float]
     favorite_genres: List[str]
+
+class BookSearchResponse(BaseModel):
+    """Response model for book search"""
+    results: List[BookSearchResult]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int

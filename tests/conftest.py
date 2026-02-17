@@ -117,6 +117,12 @@ def mock_user() -> Dict[str, Any]:
         "deleted_at": None
     }
 
+@pytest.fixture(autouse=True)
+def mock_get_user_by_id(mock_user):
+    """Auto-mock get_user_by_id for all tests"""
+    with patch('app.db.supabase.supabase_ops.get_user_by_id') as mock:
+        mock.return_value = mock_user
+        yield mock
 
 @pytest.fixture
 def inactive_user() -> Dict[str, Any]:
@@ -248,7 +254,8 @@ def mock_book() -> Dict[str, Any]:
         "page_count": 180,
         "thumbnail_url": "https://example.com/thumbnail.jpg",
         "average_rating": 4.5,
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -262,7 +269,9 @@ def mock_books() -> list:
             "authors": [f"Author {i}"],
             "isbn_13": f"978000000000{i}",
             "page_count": 200 + (i * 10),
-            "average_rating": 4.0 + (i * 0.1)
+            "average_rating": 4.0 + (i * 0.1),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }
         for i in range(1, 6)
     ]
