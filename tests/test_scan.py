@@ -2,20 +2,16 @@
 Tests for scan endpoints and OCR functionality.
 """
 import pytest
+import tempfile
+from PIL import Image
 from fastapi.testclient import TestClient
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import patch, AsyncMock
 from datetime import datetime, timezone
 
 from app.main import app
-from app.models.scan_result import ScanStatus, ScanType, OCRConfidence, ExtractedText
-
-client = TestClient(app)
-
-
-@pytest.fixture
-def mock_auth_token():
-    """Mock authentication token"""
-    return "Bearer test_token"
+from app.services.ocr_service import ocr_service
+from app.models.scan_result import ScanStatus, ScanType, OCRConfidence
+from app.core.security import get_current_active_user
 
 
 @pytest.fixture
@@ -26,6 +22,17 @@ def mock_user():
         "email": "test@example.com",
         "role": "user"
     }
+
+
+@pytest.fixture
+def client(mock_user):
+    """Test client with mocked authentication"""
+    def override_get_current_user():
+        return mock_user
+    
+    app.dependency_overrides[get_current_active_user] = override_get_current_user
+    yield TestClient(app)
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -46,25 +53,23 @@ def sample_image_file():
 class TestScanUpload:
     """Tests for scan upload endpoint"""
     
-    @patch('app.api.v1.scan.get_current_active_user')
-    @patch('app.services.ocr_service.ocr_service.extract_text_from_image')
+    @pytest.mark.asyncio
+    @patch('app.db.supabase.supabase_ops.update_scan_result', new_callable=AsyncMock)  
+    @patch('app.db.supabase.supabase_ops.create_scan_result', new_callable=AsyncMock)
     async def test_upload_image_success(
         self,
-        mock_ocr,
-        mock_auth,
-        sample_image_file,
-        mock_user
+        mock_create_scan,
+        mock_update_scan,
+        client,
+        sample_image_file
     ):
         """Test successful image upload"""
-        mock_auth.return_value = mock_user
-        mock_ocr.return_value = [
-            ExtractedText(
-                text="Test Book Title",
-                confidence=95.0,
-                confidence_level=OCRConfidence.HIGH,
-                bounding_box={"x": 0, "y": 0, "width": 100, "height": 50}
-            )
-        ]
+        mock_create_scan.return_value = {
+            "id": "123e4567-e89b-12d3-a456-426614174000",
+            "user_id": "test_user_123",
+            "status": ScanStatus.PENDING
+        }
+        mock_update_scan.return_value = None
         
         response = client.post(
             "/api/v1/scan/upload",
@@ -77,11 +82,8 @@ class TestScanUpload:
         assert "scan_id" in data
         assert data["status"] in [ScanStatus.PENDING, ScanStatus.PROCESSING]
     
-    @patch('app.api.v1.scan.get_current_active_user')
-    def test_upload_invalid_file_type(self, mock_auth, mock_user):
+    def test_upload_invalid_file_type(self, client):
         """Test upload with invalid file type"""
-        mock_auth.return_value = mock_user
-        
         response = client.post(
             "/api/v1/scan/upload",
             files={"file": ("test.txt", b"test content", "text/plain")},
@@ -91,11 +93,8 @@ class TestScanUpload:
         assert response.status_code == 400
         assert "not supported" in response.json()["detail"].lower()
     
-    @patch('app.api.v1.scan.get_current_active_user')
-    def test_upload_file_too_large(self, mock_auth, mock_user):
+    def test_upload_file_too_large(self, client):
         """Test upload with file exceeding size limit"""
-        mock_auth.return_value = mock_user
-        
         # Create large file (> 10MB)
         large_content = b"x" * (11 * 1024 * 1024)
         
@@ -110,7 +109,8 @@ class TestScanUpload:
     
     def test_upload_unauthorized(self, sample_image_file):
         """Test upload without authentication"""
-        response = client.post(
+        test_client = TestClient(app)
+        response = test_client.post(
             "/api/v1/scan/upload",
             files={"file": sample_image_file}
         )
@@ -121,11 +121,10 @@ class TestScanUpload:
 class TestScanResult:
     """Tests for scan result retrieval"""
     
-    @patch('app.api.v1.scan.get_current_active_user')
-    @patch('app.db.supabase.supabase_ops.get_user_scans')
-    async def test_get_scan_result_success(self, mock_db, mock_auth, mock_user):
+    @pytest.mark.asyncio
+    @patch('app.db.supabase.supabase_ops.get_user_scans', new_callable=AsyncMock)
+    async def test_get_scan_result_success(self, mock_db, client):
         """Test successful scan result retrieval"""
-        mock_auth.return_value = mock_user
         mock_db.return_value = [{
             "id": "scan_123",
             "user_id": "test_user_123",
@@ -150,11 +149,10 @@ class TestScanResult:
         assert data["id"] == "scan_123"
         assert data["status"] == ScanStatus.COMPLETED
     
-    @patch('app.api.v1.scan.get_current_active_user')
-    @patch('app.db.supabase.supabase_ops.get_user_scans')
-    async def test_get_scan_result_not_found(self, mock_db, mock_auth, mock_user):
+    @pytest.mark.asyncio
+    @patch('app.db.supabase.supabase_ops.get_user_scans', new_callable=AsyncMock)
+    async def test_get_scan_result_not_found(self, mock_db, client):
         """Test scan result not found"""
-        mock_auth.return_value = mock_user
         mock_db.return_value = []
         
         response = client.get(
@@ -168,11 +166,10 @@ class TestScanResult:
 class TestScanHistory:
     """Tests for scan history endpoint"""
     
-    @patch('app.api.v1.scan.get_current_active_user')
-    @patch('app.db.supabase.supabase_ops.get_user_scans')
-    async def test_get_scan_history(self, mock_db, mock_auth, mock_user):
+    @pytest.mark.asyncio
+    @patch('app.db.supabase.supabase_ops.get_user_scans', new_callable=AsyncMock)
+    async def test_get_scan_history(self, mock_db, client):
         """Test retrieving scan history"""
-        mock_auth.return_value = mock_user
         mock_db.return_value = [
             {
                 "id": f"scan_{i}",
@@ -207,9 +204,6 @@ class TestOCRService:
     @pytest.mark.asyncio
     async def test_extract_text_from_image(self):
         """Test text extraction from image"""
-        from app.services.ocr_service import ocr_service
-        from PIL import Image
-        import tempfile
         
         # Create test image
         img = Image.new('RGB', (200, 100), color='white')
@@ -237,7 +231,6 @@ class TestOCRService:
     def test_get_confidence_level(self):
         """Test confidence level categorization"""
         from app.services.ocr_service import ocr_service
-        from app.models.scan_result import OCRConfidence
         
         assert ocr_service._get_confidence_level(95.0) == OCRConfidence.HIGH
         assert ocr_service._get_confidence_level(80.0) == OCRConfidence.MEDIUM
@@ -247,11 +240,8 @@ class TestOCRService:
 class TestRateLimiting:
     """Tests for rate limiting"""
     
-    @patch('app.api.v1.scan.get_current_active_user')
-    def test_rate_limit_exceeded(self, mock_auth, mock_user, sample_image_file):
+    def test_rate_limit_exceeded(self, client, sample_image_file):
         """Test rate limiting on upload endpoint"""
-        mock_auth.return_value = mock_user
-        
         # Make multiple requests rapidly
         for i in range(65):  # Exceed 60/min limit
             response = client.post(
@@ -260,7 +250,7 @@ class TestRateLimiting:
                 headers={"Authorization": "Bearer test_token"}
             )
             
-            if i > 60:
+            if i >= 60:
                 assert response.status_code == 429  # Too Many Requests
                 break
 

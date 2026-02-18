@@ -27,7 +27,7 @@ class OCRService:
     """
     
     def __init__(self):
-        """Initialize OCR service"""
+        """Initialize OCR service with Tesseract configuration"""
         self.tesseract_path = settings.tesseract_path
         self.ocr_lang = settings.ocr_lang
         self.executor = ThreadPoolExecutor(max_workers=4)

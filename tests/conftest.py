@@ -218,6 +218,14 @@ def admin_headers(admin_token: str) -> Dict[str, str]:
     """Authorization headers with admin token"""
     return {"Authorization": f"Bearer {admin_token}"}
 
+@pytest.fixture(autouse=True)
+def mock_auth_dependency(mock_user):
+    """Auto-mock authentication for all tests"""
+    async def mock_get_current_user():
+        return mock_user
+    
+    with patch('app.core.security.get_current_active_user', side_effect=mock_get_current_user):
+        yield
 
 # Book Fixtures
 @pytest.fixture
@@ -404,6 +412,16 @@ def mock_embeddings() -> list:
     import numpy as np
     return np.random.rand(384).tolist()
 
+@pytest.fixture(autouse=True)
+def mock_auth_for_scan_tests():
+    """Auto-mock authentication for scan tests"""
+    with patch('app.core.security.get_current_active_user') as mock:
+        mock.return_value = {
+            "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            "email": "test@example.com",
+            "role": "user"
+        }
+        yield mock
 
 # External API Mocks
 @pytest.fixture
