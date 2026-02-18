@@ -111,11 +111,11 @@ class RecommendationEngine:
             ])
             
             prompt = f"""Based on these books the user has read:
-{books_summary}
+                    {books_summary}
 
-{f'User preferences: {preferences}' if preferences else ''}
+                    {f'User preferences: {preferences}' if preferences else ''}
 
-Provide 5 personalized book recommendations with brief explanations."""
+                    Provide 5 personalized book recommendations with brief explanations."""
             
             response = await self.openai_client.chat.completions.create(
                 model=settings.llm_model,
@@ -133,5 +133,82 @@ Provide 5 personalized book recommendations with brief explanations."""
             logger.error("Failed to get AI recommendations", error=str(e))
             return "Unable to generate recommendations at this time."
 
+async def get_personalized_recommendations(
+    user_id: str,
+    limit: int = 10,
+    algorithm: str = "hybrid"
+) -> Dict[str, Any]:
+    """Get personalized recommendations (wrapper for tests)"""
+    from app.db.supabase import supabase_ops
+    
+    try:
+        # Get user's books
+        library = await supabase_ops.get_user_library(user_id, page=1, page_size=100)
+        user_books = library.get("books", [])
+        
+        # Generate recommendations
+        recs = await recommendation_engine.get_recommendations(
+            user_id=user_id,
+            user_books=user_books,
+            limit=limit
+        )
+        
+        return {
+            "recommendations": recs,
+            "total": len(recs),
+            "algorithm": algorithm
+        }
+    except Exception as e:
+        logger.error("Failed to get recommendations", error=str(e))
+        return {"recommendations": [], "total": 0}
 
+
+async def find_similar_books(book: Dict[str, Any], limit: int = 5) -> Dict[str, Any]:
+    """Find similar books (wrapper for tests)"""
+    similar = await recommendation_engine._find_similar_books(book, limit)
+    return {
+        "similar_books": similar,
+        "search_method": "vector_similarity"
+    }
+
+async def generate_recommendation_explanation(
+    book_id: str,
+    user_books: List[Dict[str, Any]] = None
+) -> Dict[str, str]:
+    """Generate AI explanation for why a book is recommended"""
+    try:
+        if not user_books:
+            user_books = []
+        
+        explanation = await recommendation_engine.get_ai_recommendations(
+            user_books=user_books,
+            preferences=f"Explaining recommendation for book {book_id}"
+        )
+        
+        return {"explanation": explanation}
+        
+    except Exception as e:
+        logger.error("Failed to generate explanation", error=str(e))
+        return {"explanation": "This book is recommended based on your reading history."}
+    
+async def refresh_recommendations(user_id: str) -> Dict[str, str]:
+    """Refresh cached recommendations"""
+    try:
+        cache_key = f"rec_{user_id}_10"
+        recommendation_cache._cache.pop(cache_key, None)
+        logger.info("Cache cleared", user_id=user_id)
+        return {"message": "Recommendations refreshed"}
+    except Exception as e:
+        logger.error("Failed to refresh", error=str(e))
+        return {"message": "Failed to refresh"}
+    
 recommendation_engine = RecommendationEngine()
+
+__all__ = [
+    "RecommendationEngine",
+    "recommendation_engine",
+    "get_personalized_recommendations",
+    "find_similar_books",
+    "generate_recommendation_explanation",
+    "refresh_recommendations"
+]

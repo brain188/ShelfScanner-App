@@ -194,3 +194,95 @@ async def refresh_recommendations(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to refresh recommendations"
         )
+
+@router.get("/explain/{book_id}")
+@limiter.limit("3/hour")
+async def get_recommendation_explanation(
+    request: Request,
+    book_id: str,
+    current_user: dict = Depends(get_current_active_user)
+):
+    """
+    Get AI explanation for why a book is recommended.
+    Rate limited due to LLM cost.
+    """
+    try:
+        # Get book details
+        book = await supabase_ops.get_book_by_id(book_id)
+        
+        if not book:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Book not found"
+            )
+        
+        # Get user's books for context
+        user_books = await supabase_ops.get_user_books(
+            current_user["user_id"],
+            limit=20,
+            offset=0
+        )
+        
+        # Generate explanation
+        from app.services.recommendation_engine import generate_recommendation_explanation
+        explanation_data = await generate_recommendation_explanation(
+            book_id=book_id,
+            user_books=user_books
+        )
+        
+        logger.info("Explanation generated", book_id=book_id, user_id=current_user["user_id"])
+        
+        return explanation_data
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to generate explanation", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate explanation"
+        )
+
+
+@router.post("/{recommendation_id}/track")
+async def track_recommendation_interaction(
+    recommendation_id: str,
+    action: dict,
+    current_user: dict = Depends(get_current_active_user)
+):
+    """
+    Track user interaction with a recommendation.
+    """
+    try:
+        action_type = action.get("action", "clicked")
+        
+        # Track the interaction
+        success = await supabase_ops.update_recommendation_interaction(
+            user_id=current_user["user_id"],
+            rec_id=recommendation_id,
+            action=action_type
+        )
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to track interaction"
+            )
+        
+        logger.info(
+            "Interaction tracked",
+            user_id=current_user["user_id"],
+            rec_id=recommendation_id,
+            action=action_type
+        )
+        
+        return {"message": "Interaction tracked successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to track interaction", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to track interaction"
+        )

@@ -734,6 +734,16 @@ class SupabaseOperations:
         except Exception as e:
             logger.error("Failed to get user scans", user_id=user_id, error=str(e))
             return []
+        
+    async def update_recommendation_interaction(self, user_id: str, rec_id: str, action: str) -> bool:
+        """Track recommendation interactions"""
+        try:
+            # Log the interaction (implement actual tracking if needed)
+            logger.info("Recommendation interaction", user_id=user_id, rec_id=rec_id, action=action)
+            return True
+        except Exception as e:
+            logger.error("Failed to track interaction", error=str(e))
+            return False
 
 
 # Global instance
