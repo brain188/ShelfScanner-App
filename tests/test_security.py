@@ -2,12 +2,10 @@
 Tests for security utilities and authentication mechanisms.
 """
 import pytest
-from datetime import datetime, timedelta
+from datetime import timedelta
 from app.core.security import (
     password_manager,
-    token_manager,
-    create_access_token,
-    verify_password
+    token_manager
 )
 
 
@@ -57,7 +55,7 @@ class TestTokenManager:
     def test_create_access_token(self):
         """Test access token creation"""
         data = {"sub": "user123", "email": "user@example.com"}
-        token = create_access_token(data)
+        token = token_manager.create_access_token(data)
         
         assert isinstance(token, str)
         assert len(token) > 50
@@ -65,7 +63,7 @@ class TestTokenManager:
     def test_verify_access_token(self):
         """Test access token verification"""
         data = {"sub": "user123", "email": "user@example.com"}
-        token = create_access_token(data)
+        token = token_manager.create_access_token(data)
         
         payload = token_manager.verify_token(token, "access")
         
@@ -77,7 +75,7 @@ class TestTokenManager:
         from app.core.security import SecurityError
         
         data = {"sub": "user123"}
-        token = create_access_token(data, expires_delta=timedelta(seconds=-1))
+        token = token_manager.create_access_token(data, expires_delta=timedelta(seconds=-1))
         
         with pytest.raises(SecurityError):
             token_manager.verify_token(token, "access")

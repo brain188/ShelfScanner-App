@@ -134,18 +134,17 @@ async def upload_image(
         file_ext = file.filename.split('.')[-1].lower()
         if file_ext not in settings.allowed_extensions:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"File type not supported. Allowed: {settings.allowed_extensions}"
             )
         
         # Validate file size
-        file.file.seek(0, 2)
-        file_size = file.file.tell()
-        file.file.seek(0)
+        content = await file.read()
+        file_size = len(content)
         
         if file_size > settings.max_upload_size_bytes:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                 detail=f"File too large. Max size: {settings.max_upload_size_mb}MB"
             )
         
@@ -159,7 +158,7 @@ async def upload_image(
         file_path = upload_dir / file_name
         
         with open(file_path, "wb") as f:
-            content = await file.read()
+            # content = await file.read()
             f.write(content)
         
         logger.info(

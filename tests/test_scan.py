@@ -90,7 +90,7 @@ class TestScanUpload:
             headers={"Authorization": "Bearer test_token"}
         )
         
-        assert response.status_code == 400
+        assert response.status_code == 422
         assert "not supported" in response.json()["detail"].lower()
     
     def test_upload_file_too_large(self, client):
@@ -104,7 +104,7 @@ class TestScanUpload:
             headers={"Authorization": "Bearer test_token"}
         )
         
-        assert response.status_code == 400
+        assert response.status_code == 413
         assert "too large" in response.json()["detail"].lower()
     
     def test_upload_unauthorized(self, sample_image_file):
