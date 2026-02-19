@@ -9,6 +9,12 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 
+@pytest.fixture(autouse=True)
+def disable_rate_limit():
+    """Disable rate limiting for all tests in this module"""
+    with patch('app.api.v1.scan.limiter.limit', lambda *args, **kwargs: lambda func: func):
+        yield
+
 class TestImageUpload:
     """Test image upload for scanning"""
     

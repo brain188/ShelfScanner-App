@@ -745,8 +745,42 @@ class SupabaseOperations:
             logger.error("Failed to track interaction", error=str(e))
             return False
 
+    async def soft_delete_user(self, user_id: str) -> bool:
+        """
+        Soft delete a user account by setting deleted_at timestamp.
+        
+        Args:
+            user_id: User ID to delete
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            from datetime import datetime, timezone
+            
+            response = (
+                self.db.client.table("users")
+                .update({
+                    "deleted_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                })
+                .eq("user_id", user_id)
+                .execute()
+            )
+            
+            if response.data:
+                logger.info("User soft deleted successfully", user_id=user_id)
+                return True
+            else:
+                logger.warning("User not found for deletion", user_id=user_id)
+                return False
+                
+        except Exception as e:
+            logger.error("Failed to soft delete user", error=str(e), user_id=user_id)
+            return False
 
 # Global instance
+supabase_client = SupabaseClient()
 supabase_ops = SupabaseOperations()
 
 __all__ = ["SupabaseClient", "SupabaseOperations", "supabase_ops"]

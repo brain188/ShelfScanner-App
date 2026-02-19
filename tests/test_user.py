@@ -3,7 +3,7 @@ Tests for user profile and preferences endpoints.
 """
 import pytest
 from fastapi import status
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 
 class TestUserProfile:
@@ -11,8 +11,9 @@ class TestUserProfile:
     
     def test_get_profile_success(self, client, auth_headers, mock_user):
         """Test getting user profile"""
-        with patch('app.db.supabase.supabase_ops.get_user_by_id') as mock_get:
-            mock_get.return_value = mock_user
+        with patch('app.db.supabase.supabase_ops.get_user_by_id', new_callable=AsyncMock) as mock_get:
+
+            mock_get.return_value = {**mock_user, "user_id": "550e8400-e29b-41d4-a716-446655440000"}  
             
             response = client.get("/api/v1/users/me", headers=auth_headers)
         
@@ -22,8 +23,8 @@ class TestUserProfile:
     
     def test_update_profile_success(self, client, auth_headers, mock_user):
         """Test updating user profile"""
-        with patch('app.db.supabase.supabase_ops.get_user_by_id') as mock_get, \
-             patch('app.db.supabase.supabase_ops.update_user') as mock_update:
+        with patch('app.db.supabase.supabase_ops.get_user_by_id', new_callable=AsyncMock) as mock_get, \
+             patch('app.db.supabase.supabase_ops.update_user', new_callable=AsyncMock) as mock_update:
             
             mock_get.return_value = mock_user
             mock_update.return_value = {**mock_user, "full_name": "New Name"}
@@ -38,11 +39,11 @@ class TestUserProfile:
     
     def test_update_profile_image(self, client, auth_headers, mock_user, test_image_path):
         """Test uploading profile image"""
-        with patch('app.db.supabase.supabase_ops.get_user_by_id') as mock_get, \
-             patch('app.services.storage_service.upload_profile_image') as mock_upload:
+        with patch('app.db.supabase.supabase_ops.update_user', new_callable=AsyncMock) as mock_update, \
+             patch('app.services.storage_service.storage_service.upload_profile_image', new_callable=AsyncMock) as mock_upload:
             
-            mock_get.return_value = mock_user
             mock_upload.return_value = "https://storage/profile.jpg"
+            mock_update.return_value = {**mock_user, "profile_image": "https://storage/profile.jpg"}
             
             with open(test_image_path, "rb") as f:
                 response = client.post(
@@ -94,10 +95,11 @@ class TestUserDeletion:
             mock_get.return_value = mock_user
             mock_delete.return_value = True
             
-            response = client.delete(
+            response = client.request(
+                "DELETE",
                 "/api/v1/users/me",
                 headers=auth_headers,
-                json={"password": "TestPass123!"}
+                json={"password": "password", "confirmation": "DELETE"}
             )
         
         assert response.status_code == status.HTTP_204_NO_CONTENT
